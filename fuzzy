@@ -1,0 +1,237 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+def calculateArea(throttle_control,throttle_fuzzy,throttle_list):
+    
+    values =[]
+    coordinates =[]
+    for i in range(len(throttle_list)):
+        b_val =[]
+        l = throttle_list[i]
+        f = throttle_fuzzy[i]
+        temp = throttle_control[l]
+        x1 = temp[0]
+        y1 = 0
+        x2 = temp[1]
+        y2 = 1
+        m = (y2-y1)/(x2-x1)
+        y1 = f
+        insn = x2 -((y2-y1)/m)
+        coordinates.append([insn,y1])
+        b_val.append(insn)
+        x1 = temp[2]
+        y1 =0
+        m = (y2-y1)/(x2-x1)
+        y1 = f
+        insn = x2 -((y2-y1)/m)
+        coordinates.append([insn,y1])
+        b_val.append(insn)
+        b = b_val[1]-b_val[0]
+        #Calculate Area
+        area = 0.5*f*((temp[2]-temp[0])+b)
+        values.append(area)
+    
+    #Calculate the average
+    centroid =0
+    c_sum =0
+    for i in range(len(throttle_list)):
+        l = throttle_list[i]
+        temp = throttle_control[l]
+        centroid +=values[i]*temp[1]
+        c_sum += values[i]
+        
+    centroid = centroid/c_sum
+    return centroid,coordinates
+
+
+
+        
+def plotOutput(throttle_control,throttle_list,coordinates):
+    output ={}
+    for i in range(len(throttle_list)):
+        l = throttle_list[i]
+        temp = throttle_control[l]
+        output[l]=temp
+    plt = plotTirangle(output, 'throttleControl',0)
+    x_values = [coordinates[i][0] for i in range(len(coordinates))]
+    y_values = [coordinates[i][1] for i in range(len(coordinates))]
+    plt.plot(x_values,y_values)
+    plt.show()
+    
+        
+        
+def plotTirangle(speedDifference,name,can_show):
+    
+    for key in speedDifference:
+        temp  = speedDifference[key]
+        a = temp[0]
+        b = temp[1]
+        c = temp[2]
+        
+        if key =='NL' or key == 'PL':
+            d = temp[3]
+            x = np.arange(a,d,0.1)
+            y = np.maximum((np.minimum(((x-a)/(b-a)),np.minimum(((d-x)/(d-c)),1))),0)
+            plt.plot(x,y)
+        else:
+            x = np.arange(a,c,0.1)
+            y = np.maximum((np.minimum((x-a)/(b-a),(c-x)/(c-b))),0)
+            plt.plot(x,y)
+                
+    plt.title(name,fontsize = 14, fontweight ='bold')
+    if can_show ==1:
+        plt.show()
+    return plt
+    
+
+speedDifference ={
+    'NL':[-1,0,31,63],
+    'NM':[31,61,95],
+    'NS':[61,95,127],
+    'ZE':[95,127,159],
+    'PS':[127,159,191],
+    'PM':[159,191,223],
+    'PL':[191,223,255,260]
+    }
+
+acceleration ={
+    'NL':[-1,0,31,63],
+    'NM':[31,61,95],
+    'NS':[61,95,127],
+    'ZE':[95,127,159],
+    'PS':[127,159,191],
+    'PM':[159,191,223],
+    'PL':[191,223,255,260]
+    }
+throttle_control ={
+    'NL':[-1,0,31,63],
+    'NM':[31,61,95],
+    'NS':[61,95,127],
+    'ZE':[95,127,159],
+    'PS':[127,159,191],
+    'PM':[159,191,223],
+    'PL':[191,223,255,260]
+    }
+
+
+
+speed = 100
+acc = 70
+
+speed_list =[]
+speed_fuzzy = []
+acceleration_list = []
+acc_fuzzy =[]
+
+#FUZZIFICATION
+
+for key in speedDifference:
+    temp = speedDifference[key]
+    if speed > temp[0] and speed < temp[2]:
+        speed_list.append(key)
+      
+for key in acceleration:
+    temp = acceleration[key]
+    if acc > temp[0] and acc<temp[2]:
+        acceleration_list.append(key)
+   
+    
+for i in range(len(speed_list)):
+    temp = speed_list[i]
+    reg = speedDifference[temp]
+    a = reg[0]
+    b = reg[1]
+    c = reg[2]
+    ans = max((min((speed-a)/(b-a),(c-speed)/(c-b))),0)
+    speed_fuzzy.append(ans)
+    
+for i in range(len(acceleration_list)):
+    temp = acceleration_list[i]
+    reg = acceleration[temp]
+    a = reg[0]
+    b = reg[1]
+    c = reg[2]
+    ans = max((min((acc-a)/(b-a),(c-acc)/(c-b))),0)
+    acc_fuzzy.append(ans)
+    
+
+print(speed_list)
+print(speed_fuzzy)
+print(acceleration_list)
+print(acc_fuzzy)
+
+#INFERENCE RULES
+
+throttle_list = []
+throttle_fuzzy = []
+
+if 'NL'in speed_list and 'ZE' in acceleration_list:
+    temp1 = speed_list.index('NL')
+    temp2 = acceleration_list.index('ZE')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('PL')
+    
+if 'ZE'in speed_list and 'NL' in acceleration_list:
+    temp1 = speed_list.index('ZE')
+    temp2 = acceleration_list.index('NL')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('PL')
+    
+if 'NM'in speed_list and 'ZE' in acceleration_list:
+    temp1 = speed_list.index('NM')
+    temp2 = acceleration_list.index('ZE')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('PM')
+
+if 'NS'in speed_list and 'PS' in acceleration_list:
+    temp1 = speed_list.index('NS')
+    temp2 = acceleration_list.index('PS')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('PS')
+
+if 'PS'in speed_list and 'NS' in acceleration_list:
+    temp1 = speed_list.index('PS')
+    temp2 = acceleration_list.index('NS')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('NS')
+
+if 'PL'in speed_list and 'ZE' in acceleration_list:
+    temp1 = speed_list.index('PL')
+    temp2 = acceleration_list.index('ZE')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('NL')
+    
+if 'ZE'in speed_list and 'NS' in acceleration_list:
+    temp1 = speed_list.index('ZE')
+    temp2 = acceleration_list.index('NS')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('PS')
+
+if 'ZE'in speed_list and 'NM' in acceleration_list:
+    temp1 = speed_list.index('ZE')
+    temp2 = acceleration_list.index('NM')
+    ans = min(speed_fuzzy[temp1],speed_fuzzy[temp2])
+    throttle_fuzzy.append(ans)
+    throttle_list.append('PM')
+    
+#Plotting the graphs
+
+plotTirangle(speedDifference,'speedDifference',1)
+plotTirangle(acceleration, 'acceleration',1)
+
+print(throttle_list)
+print(throttle_fuzzy)
+output = min(throttle_fuzzy)
+print('The fuzzified value is:',output)
+centroid,coordinates = calculateArea(throttle_control, throttle_fuzzy, throttle_list)
+print("Weighted Average is: ",centroid)
+
+#Plotting the output graph
+plotOutput(throttle_control, throttle_list,coordinates)
