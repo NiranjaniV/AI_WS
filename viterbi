@@ -1,0 +1,184 @@
+import copy
+import math
+
+H ={
+    'A':0.2,
+    'C':0.3,
+    'G':0.3,
+    'T':0.2
+    }
+
+L ={
+    'A':0.3,
+    'C':0.2,
+    'G':0.2,
+    'T':0.3
+    }
+
+HMM = {
+      'start':[[0.5,H],[0.5,L]],
+      'H':[[0.5,H],[0.5,L]],
+      'L':[[0.4,H],[0.6,L]]
+       }
+
+input_sequence = ['G','G','C','A','C','T','G','A','A']
+h_list = []
+l_list = []
+
+counter  = 0
+
+print(HMM['H'][0][0])
+
+for gene in input_sequence:
+    if counter == 0:
+        temp = HMM['start']
+        ans_h = temp[0][0]*H[gene]
+        ans_l = temp[1][0]*L[gene]
+        h_list.append(ans_h)
+        l_list.append(ans_l)
+        counter+=1
+    else:
+        
+        ans_h = H[gene]*max(h_list[counter-1]*HMM['H'][0][0],l_list[counter-1]*HMM['L'][0][0])
+        ans_l = L[gene]*max(h_list[counter-1]*HMM['H'][1][0],l_list[counter-1]*HMM['L'][1][0])
+        
+        h_list.append(ans_h)
+        l_list.append(ans_l)
+        counter+=1
+    
+
+print(h_list)
+print(l_list)
+        
+prob_seq = []
+sequences =[]
+alt =[]
+cnt = 0
+for i in range(len(h_list)):
+    if l_list[i] > h_list[i]:
+        prob_seq.append('L')
+    elif math.isclose(h_list[i],l_list[i]):
+        alt.append(i)
+        prob_seq.append('H')
+    elif h_list[i] >l_list[i]:
+        prob_seq.append('H')
+        
+if len(alt)!=0:
+    temp = copy.deepcopy(prob_seq)
+    for i in alt:
+        temp[i] = 'L'
+        if temp not in sequences:
+            sequences.append(copy.deepcopy(temp))
+        temp[i] = 'H'
+    temp1 = copy.deepcopy(prob_seq)
+    for i in alt:
+        temp1[i] ='L'
+    if temp1 not in sequences:
+        sequences.append(temp1)
+        
+print("The most probable sequence is:")  
+print(prob_seq)
+print(sequences)
+
+''''''''''''''''''''''''''Version 2'''''''''''''''''
+import copy
+
+
+#forward algorithm - prob of generating the sequence
+def evaluation(inputSeq,start,H,L,HData,LData):
+    output = {'H':1,'L':1}
+    for i in range(len(inputSeq)):
+        if output['H'] == 1 and output['L'] == 1:
+            output['H'] = start['H']*HData[inputSeq[i]]
+            output['L'] = start['L']*LData[inputSeq[i]]
+        else:
+            prev = output['H']
+            output['H'] = output['H']*H['H']*HData[inputSeq[i]] + output['L']*L['H']*HData[inputSeq[i]]
+            output['L'] = output['L']*L['L']*LData[inputSeq[i]] + prev*H['L']*LData[inputSeq[i]]
+    return output
+
+
+def generateStates(output):
+    final=[]
+    for i in range(len(output['H'])):
+        if output['H'][i] == output['L'][i]:
+            if len(final)==0:
+                final.append(['H'])
+                final.append(['L'])
+            else:
+                temp = len(final)
+                for i in range(len(final)):
+                    final.append(copy.deepcopy(final[i]))
+                for i in range(len(final)):
+                    if i < temp:
+                        final[i].append('H')
+                    else:
+                        final[i].append('L')
+        elif output['H'][i] < output['L'][i]:
+            if len(final) == 0:
+                final.append(['L'])
+            else:
+                for i in range(len(final)):
+                    final[i].append('L')
+        else:
+            if len(final)==0:
+                final.append(['H'])
+            else:
+                for i in range(len(final)):
+                    final[i].append('H')
+    return final
+         
+                
+    
+    
+
+#Viterbi algorithm - finding the most probable state that generates the seqquence
+def decoding(inputSeq,start,H,L,HData,LData):
+    output = {'H':[],'L':[]}
+    for i in range(len(inputSeq)):
+        if len(output['H']) == 0 and len(output['L']) == 0:
+            output['H'].append(start['H']*HData[inputSeq[i]])
+            output['L'].append(start['L']*LData[inputSeq[i]])
+        else:
+            prevH = output['H'][len(output['H'])-1]
+            prevL = output['L'][len(output['L'])-1]
+            output['H'].append(HData[inputSeq[i]]*max(prevH*H['H'],prevL*L['H']))
+            output['L'].append(LData[inputSeq[i]]*max(prevL*L['L'],prevH*H['L']))
+    print(output)
+    final = generateStates(output)
+    return final
+    
+
+
+if __name__ == '__main__':
+    start = {
+        'H' : 0.5,
+        'L' : 0.5
+        }
+    H = {
+        'H' : 0.5,
+        'L' : 0.5
+        }
+    L = {
+        'L' : 0.6,
+        'H' : 0.4
+        }
+    HData = {
+        'A' : 0.2,
+        'C' : 0.3,
+        'G' : 0.3,
+        'T' : 0.2
+        }
+    LData = {
+        'A' : 0.3,
+        'C' : 0.2,
+        'G' : 0.2,
+        'T' : 0.3
+        }
+    inputSeq = input('Enter the input sequence: ')
+    evaluation_output = evaluation(inputSeq,start,H,L,HData,LData)
+    evaluation_output_Prob = round(sum(evaluation_output.values()),5)
+    print('The probability of generating the sequence is: ',evaluation_output_Prob)
+    inputSeq = input('Enter the input sequence: ')
+    decoding_output = decoding(inputSeq,start,H,L,HData,LData)
+    print('Most probable states that generate the sequence is: ',decoding_output)
